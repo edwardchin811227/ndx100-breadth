@@ -38,7 +38,7 @@
   <section class="notes">
     <h2>说明</h2>
     <ul>
-      <li>价格：Yahoo Finance 复权收盘价。每个美股交易日收盘后由 GitHub Actions 自动更新。</li>
+      <li>价格：Yahoo Finance 复权收盘价。每个美股交易日收盘后由 GitHub Actions 自动更新。Yahoo 查不到的已退市或被收购股票，改用 Tiingo 复权收盘价，并截至其被剔除当天：<span id="tiingo"></span></li>
       <li>成分股：历史部分按维基百科修订历史还原，生效日可能有 1–2 个交易日误差；之后每日对比纳斯达克官方名单，自动记录变更。</li>
       <li>GOOG 与 GOOGL 作为两只证券分别计入，与指数本身一致。</li>
       <li>以下股票在成分股期间有些日子无法计算：已退市、查不到价格，或上市未满 50 个交易日。这些日子不计入分母，鼠标移到图上可看到当天缺哪几只。<span id="nodata"></span></li>

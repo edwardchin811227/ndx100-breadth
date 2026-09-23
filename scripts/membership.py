@@ -85,6 +85,17 @@ def members_on(doc: dict, day: str) -> set[str]:
     return m
 
 
+def removed_on(doc: dict, ticker: str) -> str | None:
+    """Date the ticker last left the index, or None if it is still a member."""
+    last = None
+    for e in doc["events"]:
+        if ticker in e["removed"]:
+            last = e["date"]
+        elif ticker in e["added"]:
+            last = None
+    return last
+
+
 def all_tickers_since(doc: dict, day: str) -> set[str]:
     s = members_on(doc, day)
     for e in doc["events"]:

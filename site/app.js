@@ -32,6 +32,7 @@ function fillCards(d) {
   const nd = Object.entries(d.gaps).map(([t, [a, b, n]]) =>
     `${t}（${a} 至 ${b}，${n} 个交易日${dead.has(t) ? "，查不到价格" : ""}）`);
   document.getElementById("nodata").textContent = nd.length ? nd.join("；") : "无";
+  document.getElementById("tiingo").textContent = (d.tiingo_filled || []).join("、") || "无";
 }
 
 function fillEvents(d) {

@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import sys
 import time
 import warnings
@@ -58,6 +59,45 @@ def download(tickers: list[str], start: dt.date, retry: set[str] | None = None) 
             time.sleep(30 * (attempt + 1))
     back = {yahoo_symbol(t): t for t in tickers}
     return pd.DataFrame({back[s]: v for s, v in closes.items()}).sort_index()
+
+
+TIINGO_MIN_ROWS = 60
+TIINGO_MAX_SYMBOLS = 20
+
+
+def fill_from_tiingo(px: pd.DataFrame, doc: dict, universe: list[str], start: dt.date) -> tuple[pd.DataFrame, list[str]]:
+    """Replace series Yahoo lacks (mostly acquired / delisted names) with Tiingo adjusted closes.
+
+    Tiingo keeps stale rows after a delisting and sometimes reuses the symbol, so each series is
+    cut at the day the ticker left the index.
+    """
+    key = os.environ.get("TIINGO_API_KEY")
+    if not key:
+        return px, []
+    wanted = [t for t in universe if t not in px or px[t].notna().sum() < TIINGO_MIN_ROWS][:TIINGO_MAX_SYMBOLS]
+    filled = []
+    px = px.copy()
+    for t in wanted:
+        try:
+            r = ms.http_get(f"https://api.tiingo.com/tiingo/daily/{t.replace('.', '-')}/prices",
+                            {"startDate": start.isoformat(), "token": key}, tries=3)
+            rows = r.json()
+        except Exception as e:  # noqa: BLE001
+            print(f"WARNING: Tiingo {t} failed: {str(e).replace(key, '***')}")
+            continue
+        if not isinstance(rows, list) or not rows:
+            continue
+        s = pd.Series({pd.Timestamp(x["date"][:10]): x["adjClose"] for x in rows}).sort_index()
+        until = ms.removed_on(doc, t)
+        if until:
+            s = s[s.index < pd.Timestamp(until)]
+        if len(s) < TIINGO_MIN_ROWS:
+            continue
+        px = px.drop(columns=t, errors="ignore").join(s.rename(t), how="outer")
+        filled.append(t)
+    if filled:
+        print("filled from Tiingo:", ", ".join(filled))
+    return px.sort_index(), filled
 
 
 def _money(s: str) -> float | None:
@@ -175,9 +215,11 @@ def main() -> int:
 
     current = ms.members_on(doc, "9999-12-31")
     out = OUT_DIR / "breadth.json"
-    previously_empty = set(json.loads(out.read_text(encoding="utf-8")).get("no_price_data", [])) \
-        if out.exists() else set()
+    prev = json.loads(out.read_text(encoding="utf-8")) if out.exists() else {}
+    previously_empty = set(prev.get("yahoo_missing", prev.get("no_price_data", [])))
     px = download(universe, price_start, retry={t for t in universe if t in current or t not in previously_empty})
+    yahoo_missing = sorted(set(universe) - set(px.columns))
+    px, tiingo_filled = fill_from_tiingo(px, doc, universe, price_start)
     idx = download([INDEX_SYMBOL], price_start)
     if INDEX_SYMBOL not in idx:
         print("ERROR: index data unavailable")
@@ -227,6 +269,8 @@ def main() -> int:
         "series": {k: [r[k] for r in rows] for k in ("date", "pct", "above", "valid", "members", "ndx")},
         "missing": {r["date"]: r["missing"] for r in rows if r["missing"]},
         "no_price_data": no_data,
+        "yahoo_missing": yahoo_missing,
+        "tiingo_filled": tiingo_filled,
         "gaps": gaps,
         "events": [{k: e[k] for k in ("date", "added", "removed", "source", "note")} for e in events],
     }
@@ -241,7 +285,7 @@ def main() -> int:
     pd.DataFrame(rows).drop(columns="missing").to_csv(OUT_DIR / "breadth.csv", index=False)
     print(f"wrote {len(rows)} days {rows[0]['date']}..{latest['date']}; latest {latest['pct']}% "
           f"({latest['above']}/{latest['valid']}, members {latest['members']}); "
-          f"no price data: {', '.join(no_data) or 'none'}")
+          f"no price data: {', '.join(no_data) or 'none'}; Tiingo: {', '.join(tiingo_filled) or 'none'}")
     return 0
 
 
