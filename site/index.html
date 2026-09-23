@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>纳指100 市宽 · 高于 50 日均线占比</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>纳指100 市宽</h1>
+    <p class="sub">成分股中收盘价高于自身 50 日均线的比例 · 过去 3 年 · 每个交易日按当天真实成分股计算</p>
+  </header>
+
+  <section class="cards">
+    <div class="card"><div class="label">最新占比</div><div class="value" id="c-pct">–</div><div class="hint" id="c-date"></div></div>
+    <div class="card"><div class="label">较上一交易日</div><div class="value" id="c-d1">–</div><div class="hint" id="c-d5"></div></div>
+    <div class="card"><div class="label">高于 50 日线</div><div class="value" id="c-count">–</div><div class="hint" id="c-cov"></div></div>
+    <div class="card"><div class="label">状态</div><div class="value" id="c-zone">–</div><div class="hint">&lt;20% 偏弱 · &gt;80% 过热</div></div>
+  </section>
+
+  <section class="ranges" id="ranges">
+    <button data-range="3m">3 个月</button>
+    <button data-range="6m">6 个月</button>
+    <button data-range="1y">1 年</button>
+    <button data-range="all" class="on">3 年</button>
+  </section>
+
+  <div id="chart"></div>
+
+  <section>
+    <h2>成分股变更记录</h2>
+    <table id="events"><thead><tr><th>生效日</th><th>加入</th><th>剔除</th><th>来源</th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <section class="notes">
+    <h2>说明</h2>
+    <ul>
+      <li>价格：Yahoo Finance 复权收盘价。每个美股交易日收盘后由 GitHub Actions 自动更新。</li>
+      <li>成分股：历史部分按维基百科修订历史还原，生效日可能有 1–2 个交易日误差；之后每日对比纳斯达克官方名单，自动记录变更。</li>
+      <li>GOOG 与 GOOGL 作为两只证券分别计入，与指数本身一致。</li>
+      <li>以下股票在成分股期间有些日子无法计算：已退市、查不到价格，或上市未满 50 个交易日。这些日子不计入分母，鼠标移到图上可看到当天缺哪几只。<span id="nodata"></span></li>
+      <li>仅供参考，不构成投资建议。</li>
+    </ul>
+    <p class="meta">数据截至 <span id="m-latest"></span> · 生成于 <span id="m-gen"></span> · <a href="data/breadth.csv">下载 CSV</a></p>
+  </section>
+</body>
+</html>

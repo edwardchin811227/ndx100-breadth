@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.venv/
+data/.wiki_cache.json
+reports/

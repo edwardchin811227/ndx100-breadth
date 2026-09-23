@@ -1,0 +1,406 @@
+{
+ "start_date": "2023-01-01",
+ "initial": [
+  "AAPL",
+  "ABNB",
+  "ADBE",
+  "ADI",
+  "ADP",
+  "ADSK",
+  "AEP",
+  "ALGN",
+  "AMAT",
+  "AMD",
+  "AMGN",
+  "AMZN",
+  "ANSS",
+  "ASML",
+  "ATVI",
+  "AVGO",
+  "AZN",
+  "BIIB",
+  "BKNG",
+  "BKR",
+  "CDNS",
+  "CEG",
+  "CHTR",
+  "CMCSA",
+  "COST",
+  "CPRT",
+  "CRWD",
+  "CSCO",
+  "CSGP",
+  "CSX",
+  "CTAS",
+  "CTSH",
+  "DDOG",
+  "DLTR",
+  "DXCM",
+  "EA",
+  "EBAY",
+  "ENPH",
+  "EXC",
+  "FANG",
+  "FAST",
+  "FISV",
+  "FTNT",
+  "GFS",
+  "GILD",
+  "GOOG",
+  "GOOGL",
+  "HON",
+  "IDXX",
+  "ILMN",
+  "INTC",
+  "INTU",
+  "ISRG",
+  "JD",
+  "KDP",
+  "KHC",
+  "KLAC",
+  "LCID",
+  "LRCX",
+  "LULU",
+  "MAR",
+  "MCHP",
+  "MDLZ",
+  "MELI",
+  "META",
+  "MNST",
+  "MRNA",
+  "MRVL",
+  "MSFT",
+  "MU",
+  "NFLX",
+  "NVDA",
+  "NXPI",
+  "ODFL",
+  "ORLY",
+  "PANW",
+  "PAYX",
+  "PCAR",
+  "PDD",
+  "PEP",
+  "PYPL",
+  "QCOM",
+  "REGN",
+  "RIVN",
+  "ROST",
+  "SBUX",
+  "SGEN",
+  "SIRI",
+  "SNPS",
+  "TEAM",
+  "TMUS",
+  "TSLA",
+  "TXN",
+  "VRSK",
+  "VRTX",
+  "WBA",
+  "WBD",
+  "WDAY",
+  "XEL",
+  "ZM",
+  "ZS"
+ ],
+ "events": [
+  {
+   "date": "2023-06-07",
+   "added": [
+    "GEHC"
+   ],
+   "removed": [
+    "FISV"
+   ],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1159067334 (2023-06-08T01:16:32Z); Nasdaq-100 rev 1159067973 (2023-06-08T01:22:54Z)",
+   "note": "/* Components */ ticker update for Fiserv | /* Components */ nvm, GEHC replaced FI"
+  },
+  {
+   "date": "2023-06-20",
+   "added": [
+    "ON"
+   ],
+   "removed": [
+    "RIVN"
+   ],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1161102256 (2023-06-20T17:01:34Z)",
+   "note": "update table"
+  },
+  {
+   "date": "2023-07-17",
+   "added": [
+    "TTD"
+   ],
+   "removed": [
+    "ATVI"
+   ],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1165811635 (2023-07-17T15:30:01Z)",
+   "note": "update list"
+  },
+  {
+   "date": "2023-12-18",
+   "added": [
+    "CCEP",
+    "CDW",
+    "DASH",
+    "MDB",
+    "ROP",
+    "SPLK",
+    "TTWO"
+   ],
+   "removed": [
+    "ALGN",
+    "EBAY",
+    "ENPH",
+    "JD",
+    "LCID",
+    "SGEN",
+    "ZM"
+   ],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1190542112 (2023-12-18T13:50:07Z)",
+   "note": "/* Components */ updated for annual re-ranking"
+  },
+  {
+   "date": "2024-03-18",
+   "added": [
+    "LIN"
+   ],
+   "removed": [
+    "SPLK"
+   ],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1214446372 (2024-03-19T00:46:08Z)",
+   "note": "LIN replaced SPLK effective 18-Mar-2024"
+  },
+  {
+   "date": "2024-06-24",
+   "added": [
+    "ARM"
+   ],
+   "removed": [
+    "SIRI"
+   ],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1230688328 (2024-06-24T04:03:34Z)",
+   "note": "+ARM -SIRI"
+  },
+  {
+   "date": "2024-07-22",
+   "added": [
+    "SMCI"
+   ],
+   "removed": [
+    "WBA"
+   ],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1236671800 (2024-07-26T00:01:37Z)",
+   "note": "SMCI replaced WBA effective 22-Jul-2024"
+  },
+  {
+   "date": "2024-11-18",
+   "added": [
+    "APP"
+   ],
+   "removed": [
+    "DLTR"
+   ],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1259981949 (2024-11-28T04:15:15Z)",
+   "note": "APP replaced DLTR effective 18-Nov-2024"
+  },
+  {
+   "date": "2024-12-23",
+   "added": [
+    "AXON",
+    "MSTR",
+    "PLTR"
+   ],
+   "removed": [
+    "ILMN",
+    "MRNA",
+    "SMCI"
+   ],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1265020752 (2024-12-24T17:38:38Z)",
+   "note": "update table"
+  },
+  {
+   "date": "2025-05-19",
+   "added": [
+    "SHOP"
+   ],
+   "removed": [
+    "MDB"
+   ],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1291238237 (2025-05-19T23:24:23Z)",
+   "note": "SHOP replaced MDB effective 19-May-2025"
+  },
+  {
+   "date": "2025-07-19",
+   "added": [],
+   "removed": [
+    "ANSS"
+   ],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1301461352 (2025-07-20T00:14:26Z)",
+   "note": "/* Components */"
+  },
+  {
+   "date": "2025-07-28",
+   "added": [
+    "TRI"
+   ],
+   "removed": [],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1303036082 (2025-07-28T19:30:06Z)",
+   "note": "TRI was added effective 28-Jul-2025"
+  },
+  {
+   "date": "2025-10-31",
+   "added": [
+    "SOLS"
+   ],
+   "removed": [],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1319807031 (2025-11-01T00:07:17Z)",
+   "note": "Added Solstice Advanced Materials to the index."
+  },
+  {
+   "date": "2025-12-08",
+   "added": [],
+   "removed": [
+    "SOLS"
+   ],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1326474163 (2025-12-09T04:21:17Z)",
+   "note": "SOLS was removed on an unknown date in Nov. or Dec. 2025"
+  },
+  {
+   "date": "2025-12-22",
+   "added": [
+    "ALNY",
+    "FER",
+    "INSM",
+    "MPWR",
+    "STX",
+    "WDC"
+   ],
+   "removed": [
+    "BIIB",
+    "CDW",
+    "GFS",
+    "LULU",
+    "ON",
+    "TTD"
+   ],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1329027780 (2025-12-23T05:41:33Z)",
+   "note": "update list"
+  },
+  {
+   "date": "2026-01-20",
+   "added": [
+    "WMT"
+   ],
+   "removed": [
+    "AZN"
+   ],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1334003320 (2026-01-21T00:27:16Z)",
+   "note": "-AZN, +WMT"
+  },
+  {
+   "date": "2026-04-21",
+   "added": [
+    "SNDK"
+   ],
+   "removed": [
+    "TEAM"
+   ],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1350395319 (2026-04-21T18:20:43Z)",
+   "note": ""
+  },
+  {
+   "date": "2026-05-18",
+   "added": [
+    "LITE"
+   ],
+   "removed": [
+    "CSGP"
+   ],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1355425685 (2026-05-21T19:36:44Z)",
+   "note": "Prior to market open on Monday, May 18, 2026 Lumentum Holdings Inc. (Nasdaq: LITE) became a component of the Nasdaq-100 Index® replacing CoStar Group, Inc. (Nas"
+  },
+  {
+   "date": "2026-06-22",
+   "added": [
+    "ALAB",
+    "CRWV",
+    "NBIS",
+    "RKLB",
+    "TER"
+   ],
+   "removed": [
+    "CHTR",
+    "CTSH",
+    "INSM",
+    "VRSK",
+    "ZS"
+   ],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1361470074 (2026-06-28T03:11:15Z)",
+   "note": "ALAB, CRWV, NBIS, RKLB and TER replaced CHTR, CTSH, INSM, VRSK and ZS effective 22-Jun-2026"
+  },
+  {
+   "date": "2026-07-01",
+   "added": [
+    "HONA"
+   ],
+   "removed": [],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1363112745 (2026-07-08T03:09:08Z)",
+   "note": "HONA added effective 1-Jul-2026; SPCX added effective 7-Jul-2026"
+  },
+  {
+   "date": "2026-07-07",
+   "added": [
+    "SPCX"
+   ],
+   "removed": [],
+   "source": "wikipedia",
+   "ref": "Nasdaq-100 rev 1363112745 (2026-07-08T03:09:08Z)",
+   "note": "HONA added effective 1-Jul-2026; SPCX added effective 7-Jul-2026"
+  },
+  {
+   "date": "2026-08-06",
+   "added": [],
+   "removed": [
+    "EA"
+   ],
+   "source": "wikipedia",
+   "ref": "List of NASDAQ-100 companies rev 1368041570 (2026-08-06T17:50:48Z)",
+   "note": ""
+  },
+  {
+   "date": "2026-09-14",
+   "added": [],
+   "removed": [
+    "KHC"
+   ],
+   "source": "wikipedia",
+   "ref": "List of NASDAQ-100 companies rev 1375648703 (2026-09-19T03:36:09Z)",
+   "note": "KHC removed effective 14-Sep-2026"
+  }
+ ],
+ "sources": {
+  "history": "Wikipedia revision history of Nasdaq-100 / List of NASDAQ-100 companies",
+  "daily": "https://api.nasdaq.com/api/quote/list-type/nasdaq100"
+ }
+}
