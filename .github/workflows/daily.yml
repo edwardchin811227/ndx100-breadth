@@ -1,10 +1,11 @@
 name: daily-update
 
 on:
-  schedule:
-    # after the US close (20:00/21:00 UTC); the second run is a backup if the first is late or Yahoo lags
-    - cron: "30 22 * * 1-5"
-    - cron: "15 1 * * 2-6"
+  # The daily run now lives in the NAS container `ndx100-breadth`
+  # (/volume2/yoliaccessories/ndx100-breadth-docker), which runs the same
+  # scripts/update.py and pushes the same site/data files. The schedule is
+  # intentionally removed so two runners cannot race for the same commit;
+  # manual dispatch is kept as a fallback.
   workflow_dispatch:
 
 permissions:
