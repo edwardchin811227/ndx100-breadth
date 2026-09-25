@@ -244,11 +244,23 @@ def download(tickers: list[str], start: dt.date, retry: set[str] | None = None) 
 
 
 TIINGO_MIN_ROWS = 60
-TIINGO_MAX_SYMBOLS = 20
+# There is deliberately no cap on how many symbols Tiingo may fill. A whole-batch Yahoo throttle
+# makes every member missing at once, which is exactly the case this fallback exists for: stopping
+# after a couple of dozen symbols would mean the day cannot be published at all. One history request
+# per missing symbol is the cost, so the loop paces itself and stops cleanly once the account's
+# quota is exhausted instead of hammering the endpoint.
+TIINGO_PAUSE_SECONDS = 0.2
+TIINGO_QUOTA_MARKERS = ("429", "too many requests", "rate limit")
+
+
+def _tiingo_quota_exhausted(err: Exception) -> bool:
+    """Whether a Tiingo failure means "stop asking" (quota) rather than "this symbol is broken"."""
+    text = str(err).lower()
+    return any(marker in text for marker in TIINGO_QUOTA_MARKERS)
 
 
 def fill_from_tiingo(px: pd.DataFrame, doc: dict, universe: list[str], start: dt.date) -> tuple[pd.DataFrame, list[str]]:
-    """Replace series Yahoo lacks (mostly acquired / delisted names) with Tiingo adjusted closes.
+    """Replace every series Yahoo lacks with Tiingo adjusted closes.
 
     Tiingo keeps stale rows after a delisting and sometimes reuses the symbol, so each series is
     cut at the day the ticker left the index.
@@ -256,29 +268,47 @@ def fill_from_tiingo(px: pd.DataFrame, doc: dict, universe: list[str], start: dt
     key = os.environ.get("TIINGO_API_KEY")
     if not key:
         return px, []
-    wanted = [t for t in universe if t not in px or px[t].notna().sum() < TIINGO_MIN_ROWS][:TIINGO_MAX_SYMBOLS]
-    filled = []
+    wanted = [t for t in universe if t not in px or px[t].notna().sum() < TIINGO_MIN_ROWS]
+    if not wanted:
+        return px, []
+    print(f"Tiingo fallback: {len(wanted)} symbol(s) missing from Yahoo; requesting all of them")
+    filled: list[str] = []
+    failed: list[str] = []
     px = px.copy()
-    for t in wanted:
+    for index, t in enumerate(wanted):
         try:
             r = ms.http_get(f"https://api.tiingo.com/tiingo/daily/{t.replace('.', '-')}/prices",
-                            {"startDate": start.isoformat(), "token": key}, tries=3)
+                            {"startDate": start.isoformat(), "token": key}, tries=2)
             rows = r.json()
         except Exception as e:  # noqa: BLE001
+            if _tiingo_quota_exhausted(e):
+                left = wanted[index:]
+                print(f"WARNING: Tiingo quota exhausted after {len(filled)} fill(s); {len(left)} "
+                      f"symbol(s) still missing: {', '.join(left)}")
+                failed.extend(left)
+                break
+            failed.append(t)
             print(f"WARNING: Tiingo {t} failed: {str(e).replace(key, '***')}")
             continue
         if not isinstance(rows, list) or not rows:
+            failed.append(t)
             continue
         s = pd.Series({pd.Timestamp(x["date"][:10]): x["adjClose"] for x in rows}).sort_index()
         until = ms.removed_on(doc, t)
         if until:
             s = s[s.index < pd.Timestamp(until)]
         if len(s) < TIINGO_MIN_ROWS:
+            failed.append(t)
             continue
         px = px.drop(columns=t, errors="ignore").join(s.rename(t), how="outer")
         filled.append(t)
+        if index + 1 < len(wanted):
+            time.sleep(TIINGO_PAUSE_SECONDS)
     if filled:
         print("filled from Tiingo:", ", ".join(filled))
+    if failed:
+        print(f"Tiingo filled {len(filled)} of {len(wanted)} missing symbol(s); still missing: "
+              + ", ".join(failed))
     return px.sort_index(), filled
 
 
@@ -415,6 +445,66 @@ def patch_latest_from_nasdaq(px: pd.DataFrame, index_close: pd.Series, expected_
           + "; source recorded as nasdaq-quote (unverified last-sale fallback, not a guaranteed "
             "official close)")
     return px, index_close, "nasdaq-quote"
+
+
+NASDAQ_INDEX_HISTORY = "https://api.nasdaq.com/api/quote/NDX/historical"
+
+
+def _nasdaq_headers() -> dict:
+    return {**ms.BROWSER_UA, "Origin": "https://www.nasdaq.com", "Referer": "https://www.nasdaq.com/"}
+
+
+def _parse_nasdaq_index_rows(payload) -> pd.Series:
+    """Nasdaq's index table: newest first, {"date": "MM/DD/YYYY", "close": "30,470.29"}."""
+    rows = ((payload or {}).get("data") or {}).get("tradesTable", {}).get("rows") or []
+    closes: dict[pd.Timestamp, float] = {}
+    for row in rows:
+        ts = _parse_nasdaq_date(row.get("date"))
+        close = _money(row.get("close"))
+        if ts is None or close is None or not math.isfinite(close) or close <= 0:
+            continue
+        closes[ts] = close
+    return pd.Series(closes).sort_index() if closes else pd.Series(dtype=float)
+
+
+def fill_index_from_nasdaq(index_close: pd.Series, expected: dt.date | None,
+                           start: dt.date) -> tuple[pd.Series, str | None]:
+    """Complete the index series from Nasdaq's own index feed.
+
+    Tiingo covers equities, not the index itself (`NDX` and `^NDX` are both 404 there), and
+    `patch_latest_from_nasdaq` only repairs the newest value on top of a series Yahoo already
+    supplied. That left the whole run hostage to Yahoo throttling `^NDX`: the pipeline aborted with
+    `index data unavailable` before any fallback was consulted, which is what kept 2026-09-24 off the
+    site. Nasdaq's index table now supplies the missing history; the newest session deliberately
+    stays with `patch_latest_from_nasdaq`, which already owns that repair and its own labelling.
+    Existing Yahoo values always win, so this can only complete the series, never rewrite it, and a
+    series that had to be rebuilt from Nasdaq is labelled `nasdaq-index`.
+    """
+    filled = index_close.dropna()
+    if not filled.empty and expected is not None and filled.index.max().date() >= expected:
+        return index_close, None
+    try:
+        payload = ms.http_get(NASDAQ_INDEX_HISTORY,
+                              {"assetclass": "index", "fromdate": start.isoformat(), "limit": "9999"},
+                              headers=_nasdaq_headers(), tries=3).json()
+        history = _parse_nasdaq_index_rows(payload)
+    except Exception as e:  # noqa: BLE001
+        print("DIAG nasdaq index fallback: history unavailable:", e)
+        history = pd.Series(dtype=float)
+    if history.empty:
+        if filled.empty:
+            print("DIAG nasdaq index fallback: no index history rows")
+        return index_close, None
+    # combine_first keeps the caller's value wherever one exists, so Yahoo can never be overwritten
+    # by the Nasdaq table (and no sort-order assumption decides which duplicate survives).
+    merged = filled.combine_first(history).sort_index()
+    added = len(merged) - len(filled)
+    source = "nasdaq-index" if added > 0 else None
+    if source:
+        print(f"nasdaq index fallback: index series now reaches {merged.index.max().date()} "
+              f"({len(merged)} rows, {added} added from Nasdaq); source recorded as {source} "
+              f"(Nasdaq index feed, not Yahoo)")
+    return merged, source
 
 
 def _spike(series: pd.Series, price: float) -> bool:
@@ -590,10 +680,15 @@ def main() -> int:
     yahoo_missing = sorted(set(universe) - set(px.columns))
     px, tiingo_filled = fill_from_tiingo(px, doc, universe, price_start)
     idx = download([INDEX_SYMBOL], price_start)
-    if INDEX_SYMBOL not in idx:
-        print("ERROR: index data unavailable")
+    had_yahoo_index = INDEX_SYMBOL in idx
+    index_close = idx[INDEX_SYMBOL].dropna() if had_yahoo_index else pd.Series(dtype=float)
+    if index_close.empty:
+        print(f"NOTE no usable {INDEX_SYMBOL} series from Yahoo; trying the Nasdaq index feed fallback")
+    index_close, index_source = fill_index_from_nasdaq(index_close, expected, price_start)
+    if not had_yahoo_index and index_close.dropna().empty:
+        print("ERROR: index data unavailable (Yahoo returned no ^NDX series and the Nasdaq index "
+              "fallback failed)")
         return 1
-    index_close = idx[INDEX_SYMBOL].dropna()
     px = px.dropna(how="all")
     coverage_report(px, index_close, doc, expected)
     px, index_close, patch_source = patch_latest_from_nasdaq(px, index_close, expected, current)
@@ -654,7 +749,7 @@ def main() -> int:
 
     payload = {
         "latest_date": latest["date"],
-        "latest_source": patch_source or "yahoo",
+        "latest_source": patch_source or index_source or "yahoo",
         "ma_days": MA_DAYS,
         "start_date": rows[0]["date"],
         "series": {k: [r[k] for r in rows] for k in ("date", "pct", "above", "valid", "members", "ndx")},

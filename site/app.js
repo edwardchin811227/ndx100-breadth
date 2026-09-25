@@ -25,8 +25,11 @@ function fillCards(d) {
   const zEl = document.getElementById("c-zone");
   zEl.textContent = z;
   zEl.className = "value " + cls;
-  document.getElementById("m-latest").textContent = d.latest_date +
-    (d.latest_source === "nasdaq-quote" ? "（当天收盘价暂取自纳斯达克报价，Yahoo 更新后自动替换）" : "");
+  const srcNote = {
+    "nasdaq-quote": "（当天收盘价暂取自纳斯达克报价，Yahoo 更新后自动替换）",
+    "nasdaq-index": "（指数数值暂取自纳斯达克指数数据，Yahoo 更新后自动替换）",
+  }[d.latest_source] || "";
+  document.getElementById("m-latest").textContent = d.latest_date + srcNote;
   document.getElementById("m-gen").textContent = new Date(d.generated_at).toLocaleString("zh-CN", { hour12: false });
   const dead = new Set(d.no_price_data);
   const nd = Object.entries(d.gaps).map(([t, [a, b, n]]) =>

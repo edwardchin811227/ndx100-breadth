@@ -149,6 +149,16 @@ class Nasdaq:
         return {"data": {"date": date or self.quote_date,
                          "data": {"rows": self.rows if rows is None else rows}}}
 
+    def index_history(self, market: FakeMarket, lag: int = 1) -> dict:
+        """Nasdaq's NDX index table: newest first and one session behind, exactly like the real feed.
+
+        `lag=0` models a table that already carries the newest session.
+        """
+        s = market.index if not lag else market.index.iloc[:-lag]
+        rows = [{"date": ts.strftime("%m/%d/%Y"), "close": f"{float(v):,.2f}"}
+                for ts, v in s.items()][::-1]
+        return {"data": {"tradesTable": {"rows": rows}}}
+
 
 @pytest.fixture
 def env(tmp_path, monkeypatch):
@@ -171,11 +181,14 @@ def env(tmp_path, monkeypatch):
         market = FakeMarket()
         nasdaq: Nasdaq | None = None
         http = None
+        yahoo_index = True  # False simulates Yahoo returning no ^NDX series at all
 
         def run(self, now: dt.datetime, extra: list[str] | None = None) -> int:
             def fake_download(tickers, start, retry=None):
                 market = self.market
                 if list(tickers) == [INDEX]:
+                    if not self.yahoo_index:
+                        return pd.DataFrame(index=market.prices.index)
                     return pd.DataFrame({INDEX: market.index_series()})
                 return market.download(tickers, start, retry)
 
@@ -186,6 +199,8 @@ def env(tmp_path, monkeypatch):
                 market = self.market
                 if "quote/NDX/info" in url:
                     return FakeResponse(fake.info())
+                if "quote/NDX/historical" in url:
+                    return FakeResponse(fake.index_history(market))
                 if "list-type/nasdaq100" in url:
                     return FakeResponse(fake.listing(rows=fake.rows_near(market)))
                 raise AssertionError(f"unexpected HTTP request in test: {url}")
@@ -926,3 +941,120 @@ def test_nasdaq_fallback_does_not_write_a_partially_quoted_session(env, capsys):
     assert "insufficient patch coverage (88% of 50 missing member closes" in out
     assert "only 50/100 closes, not published yet" in out
     assert (env.out_dir / "breadth.json").read_text(encoding="utf-8") == previous
+
+
+def _tiingo_rows(market: FakeMarket, ticker: str) -> list[dict]:
+    """One Tiingo history row per fixture session, adjusted close equal to the fixture close."""
+    return [{"date": ts.date().isoformat(), "adjClose": float(market.prices[ticker].loc[ts])}
+            for ts in market.prices.index]
+
+
+def _tiingo_get(market: FakeMarket, tickers: list[str], *, quota_after: int | None = None):
+    """A Tiingo stand-in: answers per-symbol history URLs, optionally quota-limiting after N."""
+    seen: list[str] = []
+
+    def fake_get(url, params=None, headers=None, tries=6):
+        assert "api.tiingo.com" in url, url
+        ticker = url.rsplit("/", 2)[-2]
+        if quota_after is not None and len(seen) >= quota_after:
+            raise RuntimeError("GET https://api.tiingo.com/... failed: HTTP 429 Too Many Requests")
+        seen.append(ticker)
+        assert ticker in tickers, ticker
+        return FakeResponse(_tiingo_rows(market, ticker))
+
+    return fake_get, seen
+
+
+def test_tiingo_fallback_has_no_symbol_cap(env, monkeypatch, capsys):
+    """A whole-batch Yahoo outage must be fully recoverable: no 20-symbol ceiling any more."""
+    monkeypatch.setattr(u, "TIINGO_PAUSE_SECONDS", 0)
+    monkeypatch.setenv("TIINGO_API_KEY", "test-token")
+    market = env.market
+    doc = json.loads(env.path.read_text(encoding="utf-8"))
+    missing = TICKERS[:25]
+    fake_get, seen = _tiingo_get(market, missing)
+    monkeypatch.setattr(u.ms, "http_get", fake_get)
+
+    px, filled = u.fill_from_tiingo(pd.DataFrame(index=market.prices.index), doc, missing, market.first)
+
+    out = capsys.readouterr().out
+    assert len(filled) == 25
+    assert len(seen) == 25  # 25 requests: the loop is not capped at 20 any more
+    assert all(t in px.columns for t in missing)
+    assert "Tiingo fallback: 25 symbol(s) missing from Yahoo; requesting all of them" in out
+    assert "still missing" not in out
+
+
+def test_tiingo_fallback_stops_when_quota_is_exhausted(env, monkeypatch, capsys):
+    """Quota exhaustion stops the loop and is reported, keeping whatever was already filled."""
+    monkeypatch.setattr(u, "TIINGO_PAUSE_SECONDS", 0)
+    monkeypatch.setenv("TIINGO_API_KEY", "test-token")
+    market = env.market
+    doc = json.loads(env.path.read_text(encoding="utf-8"))
+    universe = TICKERS[:30]
+    fake_get, seen = _tiingo_get(market, universe, quota_after=5)
+    monkeypatch.setattr(u.ms, "http_get", fake_get)
+
+    px, filled = u.fill_from_tiingo(pd.DataFrame(index=market.prices.index), doc, universe,
+                                    market.first)
+
+    out = capsys.readouterr().out
+    assert len(filled) == 5
+    assert len(seen) == 5  # nothing was requested after the quota error
+    assert "Tiingo quota exhausted after 5 fill(s); 25 symbol(s) still missing" in out
+    assert all(t in px.columns for t in filled)
+
+
+def test_index_fallback_publishes_when_yahoo_returns_no_index(env, capsys):
+    """The 2026-09-25 incident: Yahoo throttled ^NDX and the run aborted with `index data
+    unavailable`. Nasdaq's index table now carries the history and the existing quote fallback
+    completes the newest session, so the day can publish after all."""
+    env.nasdaq = Nasdaq(CUR, price=20123.45)
+    env.yahoo_index = False
+    assert env.run(utc(CUR, 23, 34)) == 0
+    out = capsys.readouterr().out
+    assert "trying the Nasdaq index feed fallback" in out
+    assert "nasdaq index fallback: index series now reaches 2026-09-22" in out  # the feed lags a day
+    assert "filled the 2026-09-23 index close (20123.45)" in out
+    payload = env.payload()
+    assert payload["latest_date"] == CUR.isoformat()
+    assert payload["latest_source"] == "nasdaq-quote"
+    assert payload["series"]["ndx"][-1] == 20123.45
+
+
+def test_index_fallback_is_skipped_when_yahoo_is_current(env, monkeypatch):
+    """No extra request and no relabelling when Yahoo already reaches the expected session."""
+    market = env.market
+    yahoo = market.index_series()
+    calls: list[str] = []
+
+    def boom(url, *a, **k):
+        calls.append(url)
+        raise AssertionError(f"no request expected: {url}")
+
+    monkeypatch.setattr(u.ms, "http_get", boom)
+    merged, source = u.fill_index_from_nasdaq(yahoo, CUR, market.first)
+    assert calls == []
+    assert source is None
+    assert merged.equals(yahoo)
+
+
+def test_index_fallback_keeps_yahoo_values_and_adds_missing_sessions(env, monkeypatch):
+    """Yahoo stopping one session early: only the missing session comes from Nasdaq."""
+    market = env.market
+    partial = market.index_series(through=prev_session(CUR))
+    calls: list[str] = []
+
+    def fake_get(url, params=None, headers=None, tries=6):
+        assert "quote/NDX/historical" in url, url
+        calls.append(url)
+        return FakeResponse(Nasdaq(CUR).index_history(market, lag=0))
+
+    monkeypatch.setattr(u.ms, "http_get", fake_get)
+    merged, source = u.fill_index_from_nasdaq(partial, CUR, market.first)
+
+    assert source == "nasdaq-index"
+    assert len(calls) == 1
+    assert pd.Timestamp(CUR) in merged.index
+    # every overlapping session keeps the exact Yahoo value
+    assert merged.reindex(partial.index).equals(partial)
